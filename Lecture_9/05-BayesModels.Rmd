@@ -1,0 +1,524 @@
+---
+title: 'Bayes Models: Learning from Experience'
+author: "Sanjiv R.Das"
+output:
+  slidy_presentation: default
+  ioslides_presentation: default
+  beamer_presentation: default
+---
+
+
+## Bayes Models: Learning from Experience {#BayesModels}
+
+For a fairly good introduction to Bayes Rule, see Wikipedia, http://en.wikipedia.org/wiki/Bayes_theorem. The various R packages for Bayesian inference are at: http://cran.r-project.org/web/views/Bayesian.html. 
+
+In business, we often want to ask, is a given phenomena real or just a coincidence? Bayes theorem really helps with that. For example, we may ask -- is Warren Buffet's investment success a coincidence? How would you answer this question? Would it depend on your prior probability of Buffet being able to beat the market? How would this answer change as additional information about his performance was being released over time? 
+
+## Bayes' Theorem
+
+Bayes rule follows easily from a decomposition of joint probability, i.e., 
+
+$$
+Pr[A \cap B] = Pr(A|B)\; Pr(B) = Pr(B|A)\; Pr(A) 
+$$
+
+Then the last two terms may be arranged to give
+
+$$
+Pr(A|B) = \frac{Pr(B|A)\; Pr(A)}{Pr(B)}
+$$
+
+or
+
+$$
+Pr(B|A) = \frac{Pr(A|B)\; Pr(B)}{Pr(A)}
+$$
+
+## Example: Aids Testing
+
+This is an interesting problem, because it shows that if you are diagnosed with AIDS, there is a good chance the diagnosis is wrong, but if you are diagnosed as not having AIDS then there is a good chance it is right - hopefully this is comforting news. 
+
+Define, $\{Pos,Neg\}$ as a positive or negative diagnosis of having AIDS. Also define $\{Dis, NoDis\}$ as the event of having the disease versus not having it. There are 1.5 million AIDS cases in the U.S. and about 300 million people which means the probability of AIDS in the population is 0.005 (half a percent). Hence, a random test will uncover someone with AIDS with a half a percent probability. The confirmation accuracy of the AIDS test is 99%, such that we have 
+
+$$
+Pr(Pos | Dis) = 0.99 
+$$
+
+Hence the test is reasonably good. The accuracy of the test for people who do not have AIDS is
+
+$$
+Pr(Neg | NoDis) = 0.95
+$$
+
+What we really want is the probability of having the disease when the test comes up positive, i.e. we need to compute $Pr(Dis | Pos)$. Using Bayes Rule we calculate:
+
+$$
+\begin{aligned}
+Pr(Dis | Pos) &= \frac{Pr(Pos | Dis)Pr(Dis)}{Pr(Pos)} \\
+&= \frac{Pr(Pos | Dis)Pr(Dis)}{Pr(Pos | Dis)Pr(Dis) 
++ Pr(Pos|NoDis) Pr(NoDis)} \\
+&= \frac{0.99 \times 0.005}{(0.99)(0.005) + (0.05)(0.995)} \\
+&= 0.0904936
+\end{aligned}
+$$
+
+Hence, the chance of having AIDS when the test is positive is only 9%. We might also care about the chance of not having AIDS when the test is positive 
+
+$$
+Pr(NoDis | Pos) = 1 - Pr(Dis | Pos) = 1 - 0.09 = 0.91
+$$
+
+Finally, what is the chance that we have AIDS even when the test is negative - this would also be a matter of concern to many of us, who might not relish the chance to be on some heavy drugs for the rest of our lives. 
+
+$$
+\begin{aligned}
+Pr(Dis | Neg) &= \frac{Pr(Neg | Dis)Pr(Dis)}{Pr(Neg)} \\
+&= \frac{Pr(Neg | Dis)Pr(Dis)}{Pr(Neg | Dis)Pr(Dis) 
++ Pr(Neg|NoDis) Pr(NoDis)} \\
+&= \frac{0.01 \times 0.005}{(0.01)(0.005) + (0.95)(0.995)} \\
+&= 0.000053
+\end{aligned}
+$$
+
+Hence, this is a worry we should not have. If the test is negative, there is a miniscule chance that we are infected with AIDS. 
+
+## Computational Approach using Sets
+
+The preceding analysis is a good lead in to (a) the connection with joint probability distributions, and (b) using R to demonstrate a computational way of thinking about Bayes theorem. 
+
+Let's begin by assuming that we have 300,000 people in the population, to scale down the numbers from the millions for convenience. Of these 1,500 have AIDS. So let's create the population and then sample from it. See the use of the **sample** function in R. 
+
+```{r}
+#PEOPLE WITH AIDS
+people = seq(1,300000)
+people_aids = sample(people,1500)
+people_noaids = setdiff(people,people_aids)
+```
+
+Note, how we also used the **setdiff** function to get the complement set of the people who do not have AIDS. Now, of the people who have AIDS, we know that 99% of them test positive so let's subset that list, and also take its complement. These are joint events, and their numbers proscribe the joint distribution. 
+
+```{r}
+people_aids_pos = sample(people_aids,1500*0.99)
+people_aids_neg = setdiff(people_aids,people_aids_pos)
+print(length(people_aids_pos))
+print(length(people_aids_neg))
+```
+
+```{r}
+people_aids_neg
+```
+
+We can also subset the group that does not have AIDS, as we know that the test is negative for them 95\% of the time.
+
+```{r}
+#PEOPLE WITHOUT AIDS
+people_noaids_neg = sample(people_noaids,298500*0.95)
+people_noaids_pos = setdiff(people_noaids,people_noaids_neg)
+print(length(people_noaids_neg))
+print(length(people_noaids_pos))
+```
+
+We can now compute the probability that someone actually has AIDS when the test comes out positive. 
+
+```{r}
+#HAVE AIDS GIVEN TEST IS POSITIVE
+pr_aids_given_pos = (length(people_aids_pos))/
+       (length(people_aids_pos)+length(people_noaids_pos))
+pr_aids_given_pos
+```
+
+This confirms the formal Bayes computation that we had undertaken earlier. And of course, as we had examined earlier, what's the chance that you have AIDS when the test is negative, i.e., a false negative? 
+
+```{r}
+#FALSE NEGATIVE: HAVE AIDS WHEN TEST IS NEGATIVE
+pr_aids_given_neg = (length(people_aids_neg))/
+       (length(people_aids_neg)+length(people_noaids_neg))
+pr_aids_given_neg
+```
+
+Phew!
+
+Note here that we first computed the joint sets covering joint outcomes, and then used these to compute conditional (Bayes) probabilities. The approach used R to apply a set-theoretic, computational approach to calculating conditional probabilities. 
+
+
+## A Second Opinion
+
+What if we tested positive, and then decided to get a second opinion, i.e., take another test. What would now be the posterior probability in this case? Here is the calculation. 
+
+```{r}
+#SECOND OPINION MEDICAL TEST FOR AIDS
+0.99*0.09/(0.99*0.09 + 0.05*0.91)
+```
+
+Note that we used the previous posterior probability (0.91) as the prior probability in this calculation.
+
+## Correlated Default
+
+Bayes theorem is very useful when we want to extract conditional default information. Bond fund managers are not as interested in the correlation of default of the bonds in their portfolio as much as the conditional default of bonds. What this means is that they care about the *conditional* probability of bond A defaulting if bond B has defaulted already. 
+
+Modern finance provides many tools to obtain the default probabilities of firms. Suppose we know that firm 1 has default probability $p_1 = 1\%$ and firm 2 has default probability $p_2=3\%$. If the correlation of default of the two firms is 40\% over one year, then if either bond defaults, what is the probability of default of the other, conditional on the first default? 
+
+### Indicator Functions for Default
+
+We can see that even with this limited information, Bayes theorem allows us to derive the conditional probabilities of interest. First define $d_i, i=1,2$ as default indicators for firms 1 and 2. $d_i=1$ if the firm defaults, and zero otherwise. We note that:
+
+$$
+E(d_1)=1 . p_1 + 0 . (1-p_1) = p_1 = 0.01.
+$$
+
+Likewise
+
+$$
+E(d_2)=1 . p_2 + 0 . (1-p_2) = p_2 = 0.03.
+$$
+
+The Bernoulli distribution lets us derive the standard deviation of $d_1$ and $d_2$. 
+
+$$
+\begin{aligned}
+\sigma_1 &= \sqrt{p_1 (1-p_1)} = \sqrt{(0.01)(0.99)} = 0.099499 \\ 
+\sigma_2 &= \sqrt{p_2 (1-p_2)} = \sqrt{(0.03)(0.97)} = 0.17059 
+\end{aligned}
+$$
+
+### Default Correlation
+
+Now, we note that
+
+$$
+\begin{aligned}
+Cov(d_1,d_2) &= E(d_1 . d_2) - E(d_1)E(d_2) \\
+\rho \sigma_1 \sigma_2  &= E(d_1 . d_2) - p_1 p_2 \\
+(0.4)(0.099499)(0.17059) &= E(d_1 . d_2) - (0.01)(0.03) \\
+E(d_1 . d_2)  &= 0.0070894 \\
+E(d_1 . d_2)  &\equiv  p_{12}
+\end{aligned}
+$$
+
+where $p_{12}$ is the probability of default of both firm 1 and 2. 
+We now get the conditional probabilities:
+
+$$
+\begin{aligned}
+p(d_1 | d_2) &= p_{12}/p_2 = 0.0070894/0.03 = 0.23631 \\
+p(d_2 | d_1) &= p_{12}/p_1 = 0.0070894/0.01 = 0.70894 
+\end{aligned}
+$$
+
+These conditional probabilities are non-trivial in size, even though the individual probabilities of default are very small. What this means is that default contagion can be quite severe once firms begin to default. (This example used our knowledge of Bayes' rule, correlations, covariances, and joint events.)
+
+## Continuous Space Bayes Theorem
+
+In Bayesian approaches, the terms "prior", "posterior", and "likelihood" are commonly used and we explore this terminology here. We are usually interested in the parameter $\theta$, the mean of the distribution of some data $x$ (I am using the standard notation here). But in the Bayesian setting we do not just want the value of $\theta$, but we want a distribution of values of $\theta$ starting from some prior assumption about this distribution. So we start with $p(\theta)$, which we call the **prior** distribution. We then observe data $x$, and combine the data with the prior to get the **posterior** distribution $p(\theta | x)$. To do this, we need to compute the probability of seeing the data $x$ given our prior $p(\theta)$ and this probability is given by the **likelihood** function $L(x | \theta)$. Assume that the variance of the data $x$ is known, i.e., is $\sigma^2$. 
+
+### Formulation
+
+Applying Bayes' theorem we have
+
+$$
+p(\theta | x) = \frac{L(x | \theta)\; p(\theta)}{\int L(x | \theta) \; p(\theta)\; d\theta}
+\propto L(x | \theta)\; p(\theta)
+$$
+
+If we assume the prior distribution for the mean of the data is normal, i.e., $p(\theta) \sim N[\mu_0, \sigma_0^2]$, and the likelihood is also normal, i.e., $L(x | \theta) \sim N[\theta, \sigma^2]$, then we have that 
+
+$$
+\begin{aligned}
+p(\theta) &= \frac{1}{\sqrt{2\pi \sigma_0^2}} \exp\left[-\frac{1}{2} \frac{(\theta-\mu_0)^2}{\sigma_0^2}   \right] \sim N[\theta | \mu_0, \sigma_0^2]  \; \; \propto \exp\left[-\frac{1}{2} \frac{(\theta-\mu_0)^2}{\sigma_0^2}   \right] \\
+L(x | \theta) &= \frac{1}{\sqrt{2\pi \sigma^2}} \exp\left[-\frac{1}{2} \frac{(x-\theta)^2}{\sigma^2}   \right] \sim N[x | \theta, \sigma^2] \; \; \propto \exp\left[-\frac{1}{2} \frac{(x-\theta)^2}{\sigma^2}   \right]
+\end{aligned}
+$$
+
+### Posterior Distribution
+
+Given this, the posterior is as follows:
+
+$$
+p(\theta | x) \propto L(x | \theta) p(\theta) \;\; \propto \exp\left[-\frac{1}{2} \frac{(x-\theta)^2}{\sigma^2} -\frac{1}{2} \frac{(\theta-\mu_0)^2}{\sigma_0^2}   \right]
+$$
+
+Define the precision values to be $\tau_0 = \frac{1}{\sigma_0^2}$, and $\tau = \frac{1}{\sigma^2}$. Then it can be shown that when you observe a new value of the data $x$, the posterior distribution is written down in closed form as:
+
+$$
+p(\theta | x) \sim N\left[ \frac{\tau_0}{\tau_0+\tau} \mu_0 +  \frac{\tau}{\tau_0+\tau} x, \; \; \frac{1}{\tau_0 + \tau} \right]
+$$
+
+When the posterior distribution and prior distribution have the same form, they are said to be "conjugate" with respect to the specific likelihood function. 
+
+### Example
+
+To take an example, suppose our prior for the mean of the equity premium per month is $p(\theta) \sim N[0.005, 0.001^2]$. The standard deviation of the equity premium is 0.04. If next month we observe an equity premium of 1\%, what is the posterior distribution of the mean equity premium?
+
+```{r}
+mu0 = 0.005
+sigma0 = 0.001
+sigma=0.04
+x = 0.01
+tau0 = 1/sigma0^2
+tau = 1/sigma^2
+posterior_mean = tau0*mu0/(tau0+tau) + tau*x/(tau0+tau)
+print(posterior_mean)
+posterior_var = 1/(tau0+tau)
+print(sqrt(posterior_var))
+```
+
+Hence, we see that after updating the mean has increased mildly because the data came in higher than expected. 
+
+### General Formula for $n$ sequential updates
+
+If we observe $n$ new values of $x$, then the new posterior is
+
+$$
+p(\theta | x) \sim N\left[ \frac{\tau_0}{\tau_0+n\tau} \mu_0 +  \frac{\tau}{\tau_0+n\tau} \sum_{j=1}^n x_j, \; \; \frac{1}{\tau_0 + n \tau} \right]
+$$
+
+This is easy to derive, as it is just the result you obtain if you took each $x_j$ and updated the posterior one at a time.
+
+Try this as an Exercise. *Estimate the equity risk premium*. We will use data and discrete Bayes to come up with a forecast of the equity risk premium. Proceed along the following lines using the **LearnBayes** package. 
+
+1. We'll use data from 1926 onwards from the Fama-French data repository. All you need is the equity premium $(r_m-r_f)$ data, and I will leave it up to you to choose if you want to use annual or monthly data. Download this and load it into R. 
+2. Using the series only up to the year 2000, present the descriptive statistics for the equity premium. State these in annualized terms. 
+3. Present the distribution of returns as a histogram. 
+4. Store the results of the histogram, i.e., the range of discrete values of the equity premium, and the probability of each one. Treat this as your prior distribution. 
+5. Now take the remaining data for the years after 2000, and use this data to update the prior and construct a posterior. Assume that the prior, likelihood, and posterior are normally distributed. Use the **discrete.bayes** function to construct the posterior distribution and plot it using a histogram. See if you can put the prior and posterior on the same plot to see how the new data has changed the prior. 
+6. What is the forecasted equity premium, and what is the confidence interval around your forecast? 
+
+## Bayes Classifier
+
+Suppose we want to classify entities (emails, consumers, companies, tumors, images, etc.) into categories $c$. Think of a data set with rows each giving one instance of the data set with several characteristics, i.e., the $x$ variables, and the row will also contain the category $c$. Suppose there are $n$ variables, and $m$ categories. 
+
+We use the data to construct the prior and conditional probabilities. Once these probabilities are computed we say that the model is "trained". 
+
+The trained classifier contains the unconditional probabilities $p(c)$ of each class, which are merely frequencies with which each category appears. It also shows the conditional probability distributions $p(x |c)$ given as the mean and standard deviation of the occurrence of these terms in each class. 
+
+The posterior probabilities are computed as follows. These tell us the most likely category given the data $x$ on any observation. 
+
+$$
+p(c=i | x_1,x_2,...,x_n) = \frac{p(x_1,x_2,...,x_n|c=i) \cdot p(c=i)}{\sum_{j=1}^m p(x_1,x_2,...,x_n|c=j) \cdot p(c=j)}, \quad \forall i=1,2,...,m
+$$
+
+In the naive Bayes model, it is assumed that all the $x$ variables are independent of each other, so that we may write 
+
+$$
+p(x_1,x_2,...,x_n | c=i) = p(x_1 | c=i) \cdot p(x_1 | c=i) \cdot \cdot \cdot p(x_n | c=i) 
+$$
+
+We use the **e1071** package. It has a one-line command that takes in the tagged training dataset using the function **naiveBayes()**. It returns the trained classifier model. We may take this trained model and re-apply to the training data set to see how well it does. We use the **predict()** function for this. The data set here is the classic Iris data. 
+
+### Example
+
+```{r}
+library(e1071)
+data(iris)
+print(head(iris))
+tail(iris)
+
+#NAIVE BAYES
+res = naiveBayes(iris[,1:4],iris[,5])
+#SHOWS THE PRIOR AND LIKELIHOOD FUNCTIONS
+res
+
+#SHOWS POSTERIOR PROBABILITIES
+predict(res,iris[,1:4],type="raw")
+
+#CONFUSION MATRIX
+out = table(predict(res,iris[,1:4]),iris[,5])
+out
+```
+
+
+## Bayes Nets
+
+Higher-dimension Bayes problems and joint distributions over several outcomes/events are easy to visualize with a network diagram, also called a Bayes net. A Bayes net is a directed, acyclic graph (known as a DAG), i.e., cycles are not permitted in the graph. 
+
+A good way to understand a Bayes net is with an example of economic distress. There are three levels at which distress may be noticed: economy level ($E=1$), industry level ($I=1$), or at a particular firm level ($F=1$). Economic distress can lead to industry distress and/or firm distress, and industry distress may or may not result in a firm's distress.
+
+The probabilities are as follows. Note that the probabilities in the first tableau are unconditional, but in all the subsequent tableaus they are conditional probabilities. See @\ref(fig:bayesnet1). 
+
+```{r bayesnet1, fig.cap='Conditional probabilities', fig.align='center', out.width='65%', fig.asp=0.8, echo=FALSE}
+knitr::include_graphics("DSTMAA_images/bayesnet1.png")
+```
+
+The Bayes net shows the pathways of economic distress. There are three channels: $a$ is the inducement of industry distress from economy distress; $b$ is the inducement of firm distress directly from economy distress; $c$ is the inducement of firm distress directly from industry distress. See @\ref(fig:bayesnet2).
+
+```{r bayesnet2, fig.cap='Bayesian network', fig.align='center', out.width='65%', fig.asp=0.8, echo=FALSE}
+knitr::include_graphics("DSTMAA_images/bayesnet2.png")
+```
+
+Note here that each pair of conditional probabilities adds up to 1. The "channels" in the tableaus refer to the arrows in the Bayes net diagram. 
+
+#### Conditional Probability - 1
+
+Now we will compute an answer to the question: What is the probability that the industry is distressed if the firm is known to be in distress? The calculation is as follows:
+
+$$
+\begin{aligned}
+Pr(I=1|F=1) &= \frac{Pr(F=1|I=1)\cdot Pr(I=1)}{Pr(F=1)} \\ 
+Pr(F=1|I=1)\cdot Pr(I=1) &= Pr(F=1|I=1)\cdot Pr(I=1|E=1)\cdot Pr(E=1) \\ 
+ &+ Pr(F=1|I=1)\cdot Pr(I=1|E=0)\cdot Pr(E=0)\\ 
+&= 0.95 \times 0.6 \times 0.1 + 0.8 \times 0.2 \times 0.9 = 0.201 \\ 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+Pr(F=1|I=0)\cdot Pr(I=0) &= Pr(F=1|I=0)\cdot Pr(I=0|E=1)\cdot Pr(E=1) \\
+&+ Pr(F=1|I=0)\cdot Pr(I=0|E=0)\cdot Pr(E=0)\\ 
+&= 0.7 \times 0.4 \times 0.1 + 0.1 \times 0.8 \times 0.9 = 0.100 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+Pr(F=1) &= Pr(F=1|I=1)\cdot Pr(I=1) \\
+&+ Pr(F=1|I=0)\cdot Pr(I=0) = 0.301 
+\end{aligned}
+$$
+
+$$
+Pr(I=1|F=1) = \frac{Pr(F=1|I=1)\cdot Pr(I=1)}{Pr(F=1)} = \frac{0.201}{0.301} = 0.6677741
+$$
+
+#### Computational set-theoretic approach
+
+We may write a R script to compute the conditional probability that the industry is distressed when a firm is distressed. This uses the set approach that we visited earlier. 
+
+```{r}
+#BAYES NET COMPUTATIONS
+
+E = seq(1,100000)
+n = length(E)
+
+E1 = sample(E,length(E)*0.1)
+E0 = setdiff(E,E1)
+
+E1I1 = sample(E1,length(E1)*0.6)
+E1I0 = setdiff(E1,E1I1)
+E0I1 = sample(E0,length(E0)*0.2)
+E0I0 = setdiff(E0,E0I1)
+
+E1I1F1 = sample(E1I1,length(E1I1)*0.95)
+E1I1F0 = setdiff(E1I1,E1I1F1)
+E1I0F1 = sample(E1I0,length(E1I0)*0.70)
+E1I0F0 = setdiff(E1I0,E1I0F1)
+E0I1F1 = sample(E0I1,length(E0I1)*0.80)
+E0I1F0 = setdiff(E0I1,E0I1F1)
+E0I0F1 = sample(E0I0,length(E0I0)*0.10)
+E0I0F0 = setdiff(E0I0,E0I0F1)
+
+pr_I1_given_F1 = length(c(E1I1F1,E0I1F1))/
+     length(c(E1I1F1,E1I0F1,E0I1F1,E0I0F1))
+print(pr_I1_given_F1)
+```
+
+Running this program gives the desired probability and confirms the previous result.
+
+#### Conditional Probability - 2
+
+Compute the conditional probability that the economy is in distress if the firm is in distress. Compare this to the previous conditional probability we computed of 0.6677741. Should it be lower? 
+
+```{r}
+pr_E1_given_F1 = length(c(E1I1F1,E1I0F1))/length(c(E1I1F1,E1I0F1,E0I1F1,E0I0F1))
+print(pr_E1_given_F1)
+```
+
+Yes, it should be lower than the probability that the industry is in distress when the firm is in distress, because the economy is one network layer removed from the firm, unlike the industry. 
+
+#### R Packages for Bayes Nets
+
+What packages does R provide for doing Bayes Nets?
+
+See: http://cran.r-project.org/web/views/Bayesian.html
+
+
+## Bayes in Marketing
+
+In pilot market tests (part of a larger market research campaign), Bayes theorem shows up in a simple manner. Suppose we have a project whose value is $x$. If the product is successful ($S$), the payoff is $+100$ and if the product fails ($F$) the payoff is $-70$. The probability of these two events is:
+
+$$
+Pr(S) = 0.7, \quad Pr(F) = 0.3
+$$
+
+You can easily check that the expected value is $E(x) = 49$. Suppose we were able to buy protection for a failed product, then this protection would be a put option (of the real option type), and would be worth $0.3 \times 70 = 21$. Since the put saves the loss on failure, the value is simply the expected loss amount, conditional on loss. Market researchers think of this as the value of **perfect information**. 
+
+#### Product Launch?
+
+Would you proceed with this product launch given these odds? **Yes**, the expected value is positive (note that we are assuming away risk aversion issues here - but this is not a finance topic, but a marketing research analysis). 
+
+#### Pilot Test
+
+Now suppose there is an intermediate choice, i.e. you can undertake a pilot test (denoted $T$). Pilot tests are not highly accurate though they are reasonably sophisticated. The pilot test signals success ($T+$) or failure ($T-$) with the following probabilities:
+
+$$
+Pr(T+ | S) = 0.8 \\
+Pr(T- | S) = 0.2 \\
+Pr(T+ | F) = 0.3 \\
+Pr(T- | F) = 0.7 
+$$
+
+What are these? We note that $Pr(T+ | S)$ stands for the probability that the pilot signals success when indeed the underlying product launch will be successful. Thus the pilot in this case gives only an accurate reading of success 80\% of the time. Analogously, one can interpret the other probabilities. 
+
+We may compute the probability that the pilot gives a positive result:
+
+$$
+\begin{aligned}
+Pr(T+) &= Pr(T+ | S)Pr(S) + Pr(T+ | F)Pr(F) \\
+&= (0.8)(0.7)+(0.3)(0.3) = 0.65 
+\end{aligned}
+$$
+
+and that the result is negative:
+
+$$
+\begin{aligned}
+Pr(T-) &= Pr(T- | S)Pr(S) + Pr(T- | F)Pr(F) \\
+&= (0.2)(0.7)+(0.7)(0.3) = 0.35 
+\end{aligned}
+$$
+
+which now allows us to compute the following conditional probabilities:
+
+$$
+\begin{aligned}
+Pr(S | T+) &= \frac{Pr(T+|S)Pr(S)}{Pr(T+)} = \frac{(0.8)(0.7)}{0.65} = 0.86154 \\
+Pr(S | T-) &= \frac{Pr(T-|S)Pr(S)}{Pr(T-)} = \frac{(0.2)(0.7)}{0.35} = 0.4 \\
+Pr(F | T+) &= \frac{Pr(T+|F)Pr(F)}{Pr(T+)} = \frac{(0.3)(0.3)}{0.65} = 0.13846 \\
+Pr(F | T-) &= \frac{Pr(T-|F)Pr(F)}{Pr(T-)} = \frac{(0.7)(0.3)}{0.35} = 0.6 
+\end{aligned}
+$$
+
+Armed with these conditional probabilities, we may now re-evaluate our product launch. If the pilot comes out positive, what is the expected value of the product launch? This is as follows:
+
+$$ 
+E(x | T+) = 100 Pr(S|T+) +(-70) Pr(F|T+) \\
+= 100(0.86154)-70(0.13846) \\
+= 76.462
+$$
+
+And if the pilot comes out negative, then the value of the launch is:
+
+$$
+E(x | T-) = 100 Pr(S|T-) +(-70) Pr(F|T-) \\
+= 100(0.4)-70(0.6) \\
+= -2
+$$
+
+So. we see that if the pilot is negative, then we know that the expected value from the main product launch is negative, and we do not proceed. Thus, the overall expected value after the pilot is
+
+$$
+E(x) = E(x|T+)Pr(T+) + E(x|T-)Pr(T-) \\
+= 76.462(0.65) + (0)(0.35) \\
+= 49.70
+$$
+
+The incremental value over the case without the pilot test is $0.70$. This is the information value of the pilot test.
+
+## Other Marketing Applications
+
+Bayesian methods show up in many areas in the Marketing field. Especially around customer heterogeneity, see @RePEc:eee:econom:v:89:y:1998:i:1-2:p:57-78. Other papers are as follows: 
+
+- See the paper "The HB Revolution: How Bayesian Methods Have Changed the Face of Marketing Research," by @AllenbyBakkenRossi. 
+- See also the paper by David Bakken, titled ``The Bayesian Revolution in Marketing Research''. 
+- In conjoint analysis, see the paper by Sawtooth software. https://www.sawtoothsoftware.com/download/techpap/undca15.pdf
+
+
